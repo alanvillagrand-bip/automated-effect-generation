@@ -93,50 +93,27 @@ vec4 run(vec2 texcoord0, vec4 tex) {
         return tex;
     }
 
-    float r = max(radius, outlineThickness);
+    // Vibrant shader
 
-    /* Since `texcoord0` is ranging from {0.0, 0.0} to {1.0, 1.0} is not pixel intuitive,
-     * I am changing the range to become from {0.0, 0.0} to {width, height}
-     * in a way that {0,0} is the top-left of the window and not its shadow.
-     * This means areas with negative numbers and areas beyond windowSize is considered part of the shadow. */
-    vec2 coord0 = tex_to_pixel(texcoord0);
+    float VIB_VIBRANCE = 0.5;
+    vec3 VIB_RGB_BALANCE = vec3(1.0, 1.0, 1.0);
+    vec3 VIB_coefLuma = vec3(0.212656, 0.715158, 0.072186);
 
-    vec4 coord_shadowColor = getShadow(coord0, r, tex);
+    // Calculate luma and color saturation based on the input texture.
+    float luma = dot(VIB_coefLuma, tex.rgb);
+    float max_color = max(tex.r, max(tex.g, tex.b));
+    float min_color = min(tex.r, min(tex.g, tex.b));
+    float color_saturation = max_color - min_color;
 
-    /*
-        Split the window into these sections below. They will have a different center of circle for rounding.
+    // Apply the vibrance logic to the color channels.
+    vec3 VIB_coeffVibrance = VIB_RGB_BALANCE * -VIB_VIBRANCE;
+    vec3 p_col = vec3(sign(VIB_coeffVibrance) * color_saturation - 1.0) * VIB_coeffVibrance + 1.0;
 
-        TL  T   T   TR
-        L   x   x   R
-        L   x   x   R
-        BL  B   B   BR
-    */
-    if (coord0.y < r) {
-        if (coord0.x < r) {
-            return shapeCorner(coord0, tex, vec2(0.0, 0.0), radians(45.0), coord_shadowColor);            // Section TL
-        } else if (coord0.x > windowSize.x - r) {
-            return shapeCorner(coord0, tex, vec2(windowSize.x, 0.0), radians(135.0), coord_shadowColor);   // Section TR
-        } else if (coord0.y < outlineThickness) {
-            return shapeCorner(coord0, tex, vec2(coord0.x, 0.0), radians(90.0), coord_shadowColor);        // Section T
-        }
-    }
-    else if (coord0.y > windowSize.y - r) {
-        if (coord0.x < r) {
-            return shapeCorner(coord0, tex, vec2(0.0, windowSize.y), radians(315.0), coord_shadowColor);       // Section BL
-        } else if (coord0.x > windowSize.x - r) {
-            return shapeCorner(coord0, tex, vec2(windowSize.x, windowSize.y), radians(225.0), coord_shadowColor);// Section BR
-        } else if (coord0.y > windowSize.y - outlineThickness) {
-            return shapeCorner(coord0, tex, vec2(coord0.x, windowSize.y), radians(270.0), coord_shadowColor);    // Section B
-        }
-    }
-    else {
-        if (coord0.x < r) {
-            return shapeCorner(coord0, tex, vec2(0.0, coord0.y), radians(0.0), coord_shadowColor);             // Section L
-        } else if (coord0.x > windowSize.x - r) {
-            return shapeCorner(coord0, tex, vec2(windowSize.x, coord0.y), radians(180.0), coord_shadowColor);  // Section R
-        }
-        // For section x, the tex is not changing
-    }
+    // Mix the original color with the luma value based on the vibrance calculation.
+    tex.r = mix(luma, tex.r, p_col.r);
+    tex.g = mix(luma, tex.g, p_col.g);
+    tex.b = mix(luma, tex.b, p_col.b);
+
     return tex;
 }
 
